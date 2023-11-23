@@ -47,6 +47,7 @@ Contributors:
 
 #ifdef WITH_UNIX_SOCKETS
 #  include <sys/un.h>
+#include <arpa/inet.h>
 #endif
 
 #ifdef __QNX__
@@ -386,6 +387,29 @@ int net__try_connect_step2(struct mosquitto *mosq, uint16_t port, mosq_sock_t *s
 
 #endif
 
+void net__log_connection_attempt(struct sockaddr *addr)
+{
+	char buf[INET6_ADDRSTRLEN] = {0};
+	char *src;
+
+	if ( addr->sa_family == AF_INET6 )
+	{
+		struct sockaddr_in6 *sa = (struct sockaddr_in6 *) addr;
+		src = &sa->sin6_addr;
+	}
+
+	if ( addr->sa_family == AF_INET )
+	{
+		struct sockaddr_in *sa = (struct sockaddr_in *)addr;
+		src = &sa->sin_addr;
+	}
+
+	const char *s = inet_ntop(addr->sa_family, src, buf, INET6_ADDRSTRLEN);
+
+	//log__printf(NULL, MOSQ_LOG_DEBUG, "Attempting connection to %s", s);
+
+	printf("Attempting connection to %s\n", s);
+}
 
 static int net__try_connect_tcp(const char *host, uint16_t port, mosq_sock_t *sock, const char *bind_address, bool blocking)
 {
@@ -450,6 +474,8 @@ static int net__try_connect_tcp(const char *host, uint16_t port, mosq_sock_t *so
 				continue;
 			}
 		}
+
+		net__log_connection_attempt(rp->ai_addr);
 
 		rc = connect(*sock, rp->ai_addr, rp->ai_addrlen);
 #ifdef WIN32
